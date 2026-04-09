@@ -5,6 +5,8 @@ from utils import (
     get_category, get_product,
     add_product, edit_product, remove_product,
     format_catalog_list,
+    load_orders, save_order, generate_order_id,
+    calculate_total, format_order_notification,
 )
 
 
@@ -128,3 +130,89 @@ def test_format_catalog_list(catalog):
     assert "€15.90" in text
     assert "E-Liquids" in text
     assert "(no products)" in text
+
+
+@pytest.fixture
+def orders_path(tmp_path):
+    return str(tmp_path / "orders.json")
+
+
+@pytest.fixture
+def sample_order():
+    return {
+        "id": "0001",
+        "timestamp": "2026-04-09T14:00:00",
+        "customer": {"name": "Jane Doe", "phone": "+34600000000"},
+        "delivery": {"type": "delivery", "address": "Calle Mayor 1"},
+        "items": [
+            {"id": "vuse-alto", "name": "Vuse Alto", "qty": 1, "price": 15.90},
+            {"id": "mango-ice", "name": "Mango Ice", "qty": 2, "price": 9.50},
+        ],
+        "total": 34.90,
+        "payment": "paypal",
+        "status": "pending",
+    }
+
+
+def test_load_orders_empty(orders_path):
+    assert load_orders(orders_path) == []
+
+
+def test_save_and_load_order(orders_path, sample_order):
+    save_order(sample_order, orders_path)
+    orders = load_orders(orders_path)
+    assert len(orders) == 1
+    assert orders[0]["id"] == "0001"
+
+
+def test_save_order_appends(orders_path, sample_order):
+    save_order(sample_order, orders_path)
+    second = {**sample_order, "id": "0002"}
+    save_order(second, orders_path)
+    orders = load_orders(orders_path)
+    assert len(orders) == 2
+
+
+def test_generate_order_id_empty(orders_path):
+    assert generate_order_id(orders_path) == "0001"
+
+
+def test_generate_order_id_sequential(orders_path, sample_order):
+    save_order(sample_order, orders_path)
+    assert generate_order_id(orders_path) == "0002"
+
+
+def test_calculate_total():
+    items = [
+        {"name": "A", "qty": 2, "price": 10.00},
+        {"name": "B", "qty": 1, "price": 5.50},
+    ]
+    assert calculate_total(items) == 25.50
+
+
+def test_format_order_notification_delivery(sample_order):
+    text = format_order_notification(sample_order, "Test Shop")
+    assert "NEW ORDER #0001" in text
+    assert "Jane Doe" in text
+    assert "+34600000000" in text
+    assert "Calle Mayor 1" in text
+    assert "Vuse Alto x1" in text
+    assert "Mango Ice x2" in text
+    assert "€34.90" in text
+    assert "PayPal" in text
+
+
+def test_format_order_notification_pickup():
+    order = {
+        "id": "0002",
+        "timestamp": "2026-04-09T15:00:00",
+        "customer": {"name": "Bob", "phone": "+34611111111"},
+        "delivery": {"type": "pickup", "address": ""},
+        "items": [{"id": "x", "name": "Item", "qty": 1, "price": 5.00}],
+        "total": 5.00,
+        "payment": "inperson",
+        "status": "pending",
+    }
+    text = format_order_notification(order, "Shop")
+    assert "Pickup in store" in text
+    assert "In-Person" in text

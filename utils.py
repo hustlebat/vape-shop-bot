@@ -91,3 +91,52 @@ def format_catalog_list(catalog: dict) -> str:
                 status = "✅" if p["available"] else "❌"
                 lines.append(f"  {status} {p['name']} — €{p['price']:.2f}")
     return "\n".join(lines)
+
+
+# ── Orders ─────────────────────────────────────────────────────────────────────
+
+def load_orders(path: str) -> list:
+    if not Path(path).exists():
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_order(order: dict, path: str) -> None:
+    orders = load_orders(path)
+    orders.append(order)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(orders, f, indent=2, ensure_ascii=False)
+
+
+def generate_order_id(path: str) -> str:
+    orders = load_orders(path)
+    return str(len(orders) + 1).zfill(4)
+
+
+def calculate_total(items: list) -> float:
+    return round(sum(item["price"] * item["qty"] for item in items), 2)
+
+
+def format_order_notification(order: dict, shop_name: str) -> str:
+    delivery = order["delivery"]
+    if delivery["type"] == "delivery":
+        location = f"📍 Delivery: {delivery['address']}"
+    else:
+        location = "📍 Pickup in store"
+
+    items_text = "\n".join(
+        f"  • {item['name']} x{item['qty']} — €{item['price'] * item['qty']:.2f}"
+        for item in order["items"]
+    )
+    payment = "PayPal" if order["payment"] == "paypal" else "In-Person / Cash"
+
+    return (
+        f"🛒 NEW ORDER #{order['id']}\n\n"
+        f"👤 {order['customer']['name']}\n"
+        f"📞 {order['customer']['phone']}\n"
+        f"{location}\n\n"
+        f"Items:\n{items_text}\n\n"
+        f"Total: €{order['total']:.2f}\n"
+        f"💳 Payment: {payment}"
+    )
