@@ -150,22 +150,103 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return MAIN_MENU
 
 
-# ── Catalog browsing (Task 5) ──────────────────────────────────────────────────
+# ── Browse ────────────────────────────────────────────────────────────────────
 
 async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    catalog = load_catalog(config.CATALOG_PATH)
+    keyboard = [
+        [InlineKeyboardButton(cat["name"], callback_data=f"cat_{cat['id']}")]
+        for cat in catalog["categories"]
+    ]
+    keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_menu")])
+    text = "🛍 Choose a category:"
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    return BROWSE_CAT
 
 
-async def show_products(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def _render_products(update: Update, context: ContextTypes.DEFAULT_TYPE, category_id: str) -> int:
+    catalog = load_catalog(config.CATALOG_PATH)
+    cat = get_category(catalog, category_id)
+    available = [p for p in cat["products"] if p["available"]]
+    if not available:
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data="back_cat")]]
+        text = f"{cat['name']}\n\nNo products available yet."
+    else:
+        keyboard = [
+            [InlineKeyboardButton(f"{p['name']} — €{p['price']:.2f}", callback_data=f"prod_{p['id']}")]
+            for p in available
+        ]
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_cat")])
+        text = f"{cat['name']}"
+    await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    return BROWSE_PROD
+
+
+async def browse_products(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    category_id = query.data[4:]  # strip "cat_"
+    context.user_data["current_category"] = category_id
+    return await _render_products(update, context, category_id)
+
+
+async def back_to_categories(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    return await show_categories(update, context)
+
+
+async def back_to_products(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    return await _render_products(update, context, context.user_data["current_category"])
+
+
+async def _render_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE, product_id: str) -> int:
+    catalog = load_catalog(config.CATALOG_PATH)
+    product = get_product(catalog, context.user_data["current_category"], product_id)
+    keyboard = [
+        [InlineKeyboardButton("🛒 Add to Cart", callback_data=f"addcart_{product_id}")],
+        [InlineKeyboardButton("⬅️ Back", callback_data="back_prod")],
+    ]
+    await update.callback_query.edit_message_text(
+        f"*{product['name']}*\n\n{product['description']}\n\n💶 €{product['price']:.2f}",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode="Markdown",
+    )
+    return PROD_DETAIL
 
 
 async def show_product_detail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    query = update.callback_query
+    await query.answer()
+    product_id = query.data[5:]  # strip "prod_"
+    context.user_data["current_product"] = product_id
+    return await _render_product_detail(update, context, product_id)
 
 
 async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    query = update.callback_query
+    await query.answer("Added to cart! ✅")
+    product_id = query.data[8:]  # strip "addcart_"
+    catalog = load_catalog(config.CATALOG_PATH)
+    product = get_product(catalog, context.user_data["current_category"], product_id)
+    cart = context.user_data.setdefault("cart", [])
+    for item in cart:
+        if item["id"] == product_id:
+            item["qty"] += 1
+            return await _render_product_detail(update, context, product_id)
+    cart.append({
+        "id": product_id,
+        "category_id": context.user_data["current_category"],
+        "name": product["name"],
+        "qty": 1,
+        "price": product["price"],
+    })
+    return await _render_product_detail(update, context, product_id)
 
 
 # ── Cart & checkout (Task 6) ───────────────────────────────────────────────────
