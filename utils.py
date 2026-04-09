@@ -33,7 +33,8 @@ def get_product(catalog: dict, category_id: str, product_id: str) -> Optional[di
 
 
 def add_product(
-    catalog: dict, category_id: str, name: str, description: str, price: float
+    catalog: dict, category_id: str, name: str, description: str, price: float,
+    image: Optional[str] = None,
 ) -> dict:
     cat = get_category(catalog, category_id)
     if cat is None:
@@ -52,6 +53,7 @@ def add_product(
             "description": description,
             "price": price,
             "available": True,
+            "image": image,
         }
     )
     return catalog
@@ -60,7 +62,7 @@ def add_product(
 def edit_product(
     catalog: dict, category_id: str, product_id: str, field: str, value
 ) -> dict:
-    allowed = ("name", "description", "price", "available")
+    allowed = ("name", "description", "price", "available", "image")
     if field not in allowed:
         raise ValueError(f"Invalid field {field!r}. Allowed: {allowed}")
     product = get_product(catalog, category_id, product_id)
