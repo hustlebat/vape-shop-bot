@@ -391,7 +391,41 @@ async def collect_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return await show_main_menu(update, context)
 
 
-# ── Admin commands (Task 7) ────────────────────────────────────────────────────
+# ── PayPal screenshot ─────────────────────────────────────────────────────────
+
+async def handle_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    order_id = context.user_data.get("current_order_id", "?")
+    user = update.effective_user
+    caption = (
+        f"📸 Payment confirmation for order #{order_id}\n"
+        f"From: {user.full_name} (@{user.username or 'no username'})"
+    )
+    if update.message.photo:
+        await context.bot.send_photo(
+            chat_id=config.ADMIN_CHAT_ID,
+            photo=update.message.photo[-1].file_id,
+            caption=caption,
+        )
+    else:
+        await context.bot.send_document(
+            chat_id=config.ADMIN_CHAT_ID,
+            document=update.message.document.file_id,
+            caption=caption,
+        )
+    await update.message.reply_text(
+        "Thanks! Payment confirmation received. We'll contact you shortly. ✅"
+    )
+    return await show_main_menu(update, context)
+
+
+async def remind_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text(
+        "Please send a screenshot of your PayPal payment confirmation. 📸"
+    )
+    return AWAIT_SCREENSHOT
+
+
+# ── Admin commands (Task 8) ────────────────────────────────────────────────────
 
 async def admin_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     raise NotImplementedError
