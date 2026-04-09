@@ -86,6 +86,14 @@ def test_add_product_invalid_category(catalog):
         add_product(catalog, "missing", "X", "Y", 1.0)
 
 
+def test_add_product_deduplicates_id(catalog):
+    add_product(catalog, "eliquids", "Mango Ice", "Desc", 9.50)
+    result = add_product(catalog, "eliquids", "Mango Ice", "Another", 10.00)
+    cat = get_category(result, "eliquids")
+    ids = [p["id"] for p in cat["products"]]
+    assert len(ids) == len(set(ids)), "Product IDs must be unique"
+
+
 def test_edit_product_price(catalog):
     result = edit_product(catalog, "devices", "vuse-alto", "price", 12.00)
     p = get_product(result, "devices", "vuse-alto")

@@ -41,8 +41,10 @@ def add_product(
     base_id = name.lower().replace(" ", "-")
     existing_ids = {p["id"] for p in cat["products"]}
     product_id = base_id
-    if product_id in existing_ids:
-        product_id = f"{base_id}-{len(cat['products'])}"
+    counter = 1
+    while product_id in existing_ids:
+        product_id = f"{base_id}-{counter}"
+        counter += 1
     cat["products"].append(
         {
             "id": product_id,
@@ -72,6 +74,8 @@ def remove_product(catalog: dict, category_id: str, product_id: str) -> dict:
     cat = get_category(catalog, category_id)
     if cat is None:
         raise ValueError(f"Category {category_id!r} not found")
+    if not any(p["id"] == product_id for p in cat["products"]):
+        raise ValueError(f"Product {product_id!r} not found in category {category_id!r}")
     cat["products"] = [p for p in cat["products"] if p["id"] != product_id]
     return catalog
 
@@ -79,7 +83,7 @@ def remove_product(catalog: dict, category_id: str, product_id: str) -> dict:
 def format_catalog_list(catalog: dict) -> str:
     lines = []
     for cat in catalog["categories"]:
-        lines.append(f"\n{cat['name']}")
+        lines.append(cat['name'])
         if not cat["products"]:
             lines.append("  (no products)")
         else:
