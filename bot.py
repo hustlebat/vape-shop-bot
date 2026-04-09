@@ -249,38 +249,146 @@ async def add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     return await _render_product_detail(update, context, product_id)
 
 
-# ── Cart & checkout (Task 6) ───────────────────────────────────────────────────
+# ── Cart ──────────────────────────────────────────────────────────────────────
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    cart = context.user_data.get("cart", [])
+    if not cart:
+        keyboard = [
+            [InlineKeyboardButton("🛍 Browse Shop", callback_data="menu_browse")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back_menu")],
+        ]
+        text = "🛒 Your cart is empty."
+    else:
+        total = calculate_total(cart)
+        lines = [
+            f"• {item['name']} x{item['qty']} — €{item['price'] * item['qty']:.2f}"
+            for item in cart
+        ]
+        text = "🛒 *Your Cart*\n\n" + "\n".join(lines) + f"\n\n*Total: €{total:.2f}*"
+        keyboard = [
+            [InlineKeyboardButton("✅ Checkout", callback_data="checkout")],
+            [InlineKeyboardButton("🗑 Clear Cart", callback_data="clearcart")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back_menu")],
+        ]
+    if update.callback_query:
+        await update.callback_query.edit_message_text(
+            text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+        )
+    else:
+        await update.message.reply_text(
+            text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown"
+        )
+    return CART
 
 
-async def remove_from_cart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def clear_cart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer("Cart cleared.")
+    context.user_data["cart"] = []
+    return await show_cart(update, context)
 
 
-async def checkout_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+# ── Checkout ──────────────────────────────────────────────────────────────────
+
+async def checkout_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["checkout"] = {}
+    await query.edit_message_text("📋 Let's complete your order.\n\nWhat's your full name?")
+    return CHECKOUT_NAME
 
 
-async def checkout_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def collect_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["checkout"]["name"] = update.message.text.strip()
+    await update.message.reply_text("📱 What's your phone number?")
+    return CHECKOUT_PHONE
 
 
-async def checkout_delivery_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def collect_phone(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["checkout"]["phone"] = update.message.text.strip()
+    await update.message.reply_text(
+        "How would you like to receive your order?",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🚚 Delivery", callback_data="delivery_delivery"),
+            InlineKeyboardButton("🏪 Pickup", callback_data="delivery_pickup"),
+        ]]),
+    )
+    return CHECKOUT_DELIVERY_TYPE
 
 
-async def checkout_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def _ask_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    keyboard = InlineKeyboardMarkup([[
+        InlineKeyboardButton("💵 In-Person / Cash", callback_data="payment_inperson"),
+        InlineKeyboardButton("💳 PayPal", callback_data="payment_paypal"),
+    ]])
+    text = "💳 How would you like to pay?"
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(text, reply_markup=keyboard)
+    return CHECKOUT_PAYMENT
 
 
-async def checkout_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def collect_delivery_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    delivery_type = query.data.split("_", 1)[1]  # "delivery" or "pickup"
+    context.user_data["checkout"]["delivery_type"] = delivery_type
+    if delivery_type == "delivery":
+        await query.edit_message_text("📍 What's your delivery address?")
+        return CHECKOUT_ADDRESS
+    context.user_data["checkout"]["address"] = ""
+    return await _ask_payment(update, context)
 
 
-async def await_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+async def collect_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data["checkout"]["address"] = update.message.text.strip()
+    return await _ask_payment(update, context)
+
+
+async def collect_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    payment = query.data.split("_", 1)[1]  # "inperson" or "paypal"
+    checkout = context.user_data["checkout"]
+    checkout["payment"] = payment
+
+    cart = context.user_data["cart"]
+    order_id = generate_order_id(config.ORDERS_PATH)
+    order = {
+        "id": order_id,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "customer": {"name": checkout["name"], "phone": checkout["phone"]},
+        "delivery": {"type": checkout["delivery_type"], "address": checkout.get("address", "")},
+        "items": cart,
+        "total": calculate_total(cart),
+        "payment": payment,
+        "status": "pending",
+    }
+    save_order(order, config.ORDERS_PATH)
+    context.user_data["cart"] = []
+    context.user_data["current_order_id"] = order_id
+
+    # Notify admin
+    await context.bot.send_message(
+        chat_id=config.ADMIN_CHAT_ID,
+        text=format_order_notification(order, config.SHOP_NAME),
+    )
+
+    if payment == "paypal":
+        await query.edit_message_text(
+            f"✅ Order #{order_id} received!\n\n"
+            f"💳 Please pay via PayPal:\n{config.PAYPAL_LINK}\n\n"
+            "Once paid, send a screenshot of your confirmation here."
+        )
+        return AWAIT_SCREENSHOT
+
+    await query.edit_message_text(
+        f"✅ Order #{order_id} received!\n\n"
+        "We'll contact you shortly to arrange everything. 🙌"
+    )
+    return await show_main_menu(update, context)
 
 
 # ── Admin commands (Task 7) ────────────────────────────────────────────────────
