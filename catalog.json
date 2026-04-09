@@ -1,0 +1,27 @@
+{
+  "categories": [
+    {
+      "id": "devices",
+      "name": "⚡ Devices",
+      "products": [
+        {
+          "id": "vuse-alto",
+          "name": "Vuse Alto",
+          "description": "Compact pod device, 650mAh battery. Includes pod.",
+          "price": 15.90,
+          "available": true
+        }
+      ]
+    },
+    {
+      "id": "eliquids",
+      "name": "💧 E-Liquids",
+      "products": []
+    },
+    {
+      "id": "accessories",
+      "name": "🔧 Accessories",
+      "products": []
+    }
+  ]
+}
