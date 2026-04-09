@@ -425,96 +425,329 @@ async def remind_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return AWAIT_SCREENSHOT
 
 
-# ── Admin commands (Task 8) ────────────────────────────────────────────────────
+# ── Admin helpers ─────────────────────────────────────────────────────────────
 
-async def admin_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    raise NotImplementedError
+def _all_products(catalog: dict) -> list:
+    """Return list of (category_id, product) tuples for all products."""
+    result = []
+    for cat in catalog["categories"]:
+        for p in cat["products"]:
+            result.append((cat["id"], p))
+    return result
 
 
-async def admin_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    raise NotImplementedError
+# ── Admin read commands ───────────────────────────────────────────────────────
 
+async def cmd_list_products(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update):
+        return
+    catalog = load_catalog(config.CATALOG_PATH)
+    await update.message.reply_text(
+        "📦 *Product Catalog*\n" + format_catalog_list(catalog),
+        parse_mode="Markdown",
+    )
+
+
+async def cmd_orders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update):
+        return
+    orders = load_orders(config.ORDERS_PATH)
+    if not orders:
+        await update.message.reply_text("No orders yet.")
+        return
+    recent = list(reversed(orders[-10:]))
+    lines = []
+    for o in recent:
+        icon = "✅" if o["status"] == "paid" else "⏳"
+        lines.append(f"{icon} #{o['id']} — {o['customer']['name']} — €{o['total']:.2f} ({o['payment']})")
+    await update.message.reply_text(
+        "📋 *Last 10 Orders*\n\n" + "\n".join(lines), parse_mode="Markdown"
+    )
+
+
+async def cmd_paid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not is_admin(update):
+        return
+    if not context.args:
+        await update.message.reply_text("Usage: /paid <order_id>")
+        return
+    order_id = context.args[0]
+    orders = load_orders(config.ORDERS_PATH)
+    for o in orders:
+        if o["id"] == order_id:
+            o["status"] = "paid"
+            with open(config.ORDERS_PATH, "w", encoding="utf-8") as f:
+                json.dump(orders, f, indent=2, ensure_ascii=False)
+            await update.message.reply_text(f"✅ Order #{order_id} marked as paid.")
+            return
+    await update.message.reply_text(f"Order #{order_id} not found.")
+
+
+# ── Admin: /addproduct ────────────────────────────────────────────────────────
 
 async def admin_add_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    if not is_admin(update):
+        return END
+    catalog = load_catalog(config.CATALOG_PATH)
+    keyboard = [
+        [InlineKeyboardButton(cat["name"], callback_data=f"addcat_{cat['id']}")]
+        for cat in catalog["categories"]
+    ]
+    await update.message.reply_text("Which category?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ADMIN_ADD_CAT
+
+
+async def admin_add_pick_cat(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    context.user_data["admin_add_category"] = query.data[7:]  # strip "addcat_"
+    await query.edit_message_text("Product name?")
+    return ADMIN_ADD_NAME
 
 
 async def admin_add_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    context.user_data["admin_add_name"] = update.message.text.strip()
+    await update.message.reply_text("Description?")
+    return ADMIN_ADD_DESC
 
 
 async def admin_add_desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    context.user_data["admin_add_desc"] = update.message.text.strip()
+    await update.message.reply_text("Price (e.g. 15.90)?")
+    return ADMIN_ADD_PRICE
 
 
 async def admin_add_price(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    try:
+        price = float(update.message.text.strip().replace(",", "."))
+    except ValueError:
+        await update.message.reply_text("Invalid price. Enter a number like 15.90:")
+        return ADMIN_ADD_PRICE
+    catalog = load_catalog(config.CATALOG_PATH)
+    catalog = add_product(
+        catalog,
+        context.user_data["admin_add_category"],
+        context.user_data["admin_add_name"],
+        context.user_data["admin_add_desc"],
+        price,
+    )
+    save_catalog(catalog, config.CATALOG_PATH)
+    name = context.user_data["admin_add_name"]
+    await update.message.reply_text(f"✅ '{name}' added to catalog.")
+    return END
 
 
-async def admin_edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
-
-
-async def admin_edit_field(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
-
-
-async def admin_edit_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
-
+# ── Admin: /removeproduct ─────────────────────────────────────────────────────
 
 async def admin_remove_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    if not is_admin(update):
+        return END
+    catalog = load_catalog(config.CATALOG_PATH)
+    products = _all_products(catalog)
+    if not products:
+        await update.message.reply_text("No products to remove.")
+        return END
+    keyboard = [
+        [InlineKeyboardButton(
+            f"{p['name']} (€{p['price']:.2f})",
+            callback_data=f"rm_{cat_id}__{p['id']}"
+        )]
+        for cat_id, p in products
+    ]
+    await update.message.reply_text("Which product to remove?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ADMIN_REMOVE_SELECT
+
+
+async def admin_remove_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    _, rest = query.data.split("rm_", 1)
+    cat_id, product_id = rest.split("__", 1)
+    context.user_data["admin_rm_cat"] = cat_id
+    context.user_data["admin_rm_prod"] = product_id
+    catalog = load_catalog(config.CATALOG_PATH)
+    product = get_product(catalog, cat_id, product_id)
+    await query.edit_message_text(
+        f"Remove *{product['name']}*?",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("✅ Yes, remove", callback_data="rm_confirm_yes"),
+            InlineKeyboardButton("❌ Cancel", callback_data="rm_confirm_no"),
+        ]]),
+        parse_mode="Markdown",
+    )
+    return ADMIN_REMOVE_CONFIRM
 
 
 async def admin_remove_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    raise NotImplementedError
+    query = update.callback_query
+    await query.answer()
+    if query.data == "rm_confirm_yes":
+        catalog = load_catalog(config.CATALOG_PATH)
+        catalog = remove_product(catalog, context.user_data["admin_rm_cat"], context.user_data["admin_rm_prod"])
+        save_catalog(catalog, config.CATALOG_PATH)
+        await query.edit_message_text("✅ Product removed.")
+    else:
+        await query.edit_message_text("Cancelled.")
+    return END
 
 
-# ── main ──────────────────────────────────────────────────────────────────────
+# ── Admin: /editproduct ───────────────────────────────────────────────────────
+
+async def admin_edit_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not is_admin(update):
+        return END
+    catalog = load_catalog(config.CATALOG_PATH)
+    products = _all_products(catalog)
+    if not products:
+        await update.message.reply_text("No products to edit.")
+        return END
+    keyboard = [
+        [InlineKeyboardButton(p["name"], callback_data=f"ed_{cat_id}__{p['id']}")]
+        for cat_id, p in products
+    ]
+    await update.message.reply_text("Which product to edit?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ADMIN_EDIT_SELECT
+
+
+async def admin_edit_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    _, rest = query.data.split("ed_", 1)
+    cat_id, product_id = rest.split("__", 1)
+    context.user_data["admin_ed_cat"] = cat_id
+    context.user_data["admin_ed_prod"] = product_id
+    await query.edit_message_text(
+        "Which field to edit?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("Name", callback_data="edfield_name")],
+            [InlineKeyboardButton("Description", callback_data="edfield_description")],
+            [InlineKeyboardButton("Price", callback_data="edfield_price")],
+            [InlineKeyboardButton("Available (true/false)", callback_data="edfield_available")],
+        ]),
+    )
+    return ADMIN_EDIT_FIELD
+
+
+async def admin_edit_field(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    field = query.data[8:]  # strip "edfield_"
+    context.user_data["admin_ed_field"] = field
+    await query.edit_message_text(f"Enter new value for *{field}*:", parse_mode="Markdown")
+    return ADMIN_EDIT_VALUE
+
+
+async def admin_edit_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    raw = update.message.text.strip()
+    field = context.user_data["admin_ed_field"]
+    if field == "price":
+        try:
+            value = float(raw.replace(",", "."))
+        except ValueError:
+            await update.message.reply_text("Invalid price. Enter a number (e.g. 12.50):")
+            return ADMIN_EDIT_VALUE
+    elif field == "available":
+        if raw.lower() in ("true", "yes", "1"):
+            value = True
+        elif raw.lower() in ("false", "no", "0"):
+            value = False
+        else:
+            await update.message.reply_text("Enter true or false:")
+            return ADMIN_EDIT_VALUE
+    else:
+        value = raw
+    catalog = load_catalog(config.CATALOG_PATH)
+    catalog = edit_product(catalog, context.user_data["admin_ed_cat"], context.user_data["admin_ed_prod"], field, value)
+    save_catalog(catalog, config.CATALOG_PATH)
+    await update.message.reply_text(f"✅ {field} updated.")
+    return END
+
+
+# ── Application wiring ────────────────────────────────────────────────────────
 
 def main() -> None:
     app = Application.builder().token(config.BOT_TOKEN).build()
 
-    conv = ConversationHandler(
+    customer_conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            AGE_GATE: [CallbackQueryHandler(age_response, pattern="^age_")],
+            AGE_GATE: [CallbackQueryHandler(age_response, pattern="^age_(yes|no)$")],
             MAIN_MENU: [
                 CallbackQueryHandler(main_menu_handler, pattern="^menu_"),
                 CallbackQueryHandler(back_to_menu, pattern="^back_menu$"),
+                CallbackQueryHandler(show_cart, pattern="^menu_cart$"),
             ],
             BROWSE_CAT: [
-                CallbackQueryHandler(show_products, pattern="^cat_"),
+                CallbackQueryHandler(browse_products, pattern="^cat_"),
                 CallbackQueryHandler(back_to_menu, pattern="^back_menu$"),
             ],
             BROWSE_PROD: [
                 CallbackQueryHandler(show_product_detail, pattern="^prod_"),
-                CallbackQueryHandler(show_categories, pattern="^back_cats$"),
+                CallbackQueryHandler(back_to_categories, pattern="^back_cat$"),
             ],
             PROD_DETAIL: [
                 CallbackQueryHandler(add_to_cart, pattern="^addcart_"),
-                CallbackQueryHandler(show_products, pattern="^back_prods_"),
+                CallbackQueryHandler(back_to_products, pattern="^back_prod$"),
             ],
             CART: [
-                CallbackQueryHandler(remove_from_cart, pattern="^remcart_"),
-                CallbackQueryHandler(checkout_name, pattern="^checkout$"),
+                CallbackQueryHandler(checkout_start, pattern="^checkout$"),
+                CallbackQueryHandler(clear_cart, pattern="^clearcart$"),
                 CallbackQueryHandler(back_to_menu, pattern="^back_menu$"),
+                CallbackQueryHandler(show_categories, pattern="^menu_browse$"),
             ],
-            CHECKOUT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, checkout_phone)],
-            CHECKOUT_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, checkout_delivery_type)],
-            CHECKOUT_DELIVERY_TYPE: [CallbackQueryHandler(checkout_address, pattern="^delivery_")],
-            CHECKOUT_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, checkout_payment)],
-            CHECKOUT_PAYMENT: [CallbackQueryHandler(await_screenshot, pattern="^pay_")],
+            CHECKOUT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_name)],
+            CHECKOUT_PHONE: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_phone)],
+            CHECKOUT_DELIVERY_TYPE: [CallbackQueryHandler(collect_delivery_type, pattern="^delivery_")],
+            CHECKOUT_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, collect_address)],
+            CHECKOUT_PAYMENT: [CallbackQueryHandler(collect_payment, pattern="^payment_")],
             AWAIT_SCREENSHOT: [
-                MessageHandler(filters.PHOTO, await_screenshot),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, await_screenshot),
+                MessageHandler(filters.PHOTO | filters.Document.ALL, handle_screenshot),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, remind_screenshot),
             ],
         },
         fallbacks=[CommandHandler("start", start)],
+        per_message=False,
     )
 
-    app.add_handler(conv)
+    add_conv = ConversationHandler(
+        entry_points=[CommandHandler("addproduct", admin_add_start)],
+        states={
+            ADMIN_ADD_CAT: [CallbackQueryHandler(admin_add_pick_cat, pattern="^addcat_")],
+            ADMIN_ADD_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_name)],
+            ADMIN_ADD_DESC: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_desc)],
+            ADMIN_ADD_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_price)],
+        },
+        fallbacks=[],
+    )
+
+    remove_conv = ConversationHandler(
+        entry_points=[CommandHandler("removeproduct", admin_remove_start)],
+        states={
+            ADMIN_REMOVE_SELECT: [CallbackQueryHandler(admin_remove_select, pattern="^rm_[^c]")],
+            ADMIN_REMOVE_CONFIRM: [CallbackQueryHandler(admin_remove_confirm, pattern="^rm_confirm_")],
+        },
+        fallbacks=[],
+    )
+
+    edit_conv = ConversationHandler(
+        entry_points=[CommandHandler("editproduct", admin_edit_start)],
+        states={
+            ADMIN_EDIT_SELECT: [CallbackQueryHandler(admin_edit_select, pattern="^ed_")],
+            ADMIN_EDIT_FIELD: [CallbackQueryHandler(admin_edit_field, pattern="^edfield_")],
+            ADMIN_EDIT_VALUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_edit_value)],
+        },
+        fallbacks=[],
+    )
+
+    app.add_handler(customer_conv)
+    app.add_handler(add_conv)
+    app.add_handler(remove_conv)
+    app.add_handler(edit_conv)
+    app.add_handler(CommandHandler("listproducts", cmd_list_products))
+    app.add_handler(CommandHandler("orders", cmd_orders))
+    app.add_handler(CommandHandler("paid", cmd_paid))
+
+    logger.info("Bot started. Press Ctrl+C to stop.")
     app.run_polling()
 
 
