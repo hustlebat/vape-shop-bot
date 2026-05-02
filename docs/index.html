@@ -271,7 +271,7 @@ let paymentType = "inperson";
 
 async function loadCatalog() {
   try {
-    const res = await fetch("catalog.json");
+    const res = await fetch("catalog.json?v=" + Date.now());
     catalog = await res.json();
   } catch {
     catalog = { categories: [] };
