@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Shop</title>
+<title>Boutique</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,7 +15,6 @@
     padding-bottom: 80px;
   }
 
-  /* ── Screens ── */
   .screen { display: none; }
   .screen.active { display: block; }
 
@@ -96,6 +95,7 @@
   .product-name { font-size: 13px; font-weight: 600; line-height: 1.3; }
   .product-price { font-size: 14px; font-weight: 700; color: var(--tg-theme-button-color, #0088cc); }
   .product-unavailable { font-size: 12px; color: var(--tg-theme-hint-color, #999); margin-top: auto; }
+  .mix-badge { font-size: 11px; color: var(--tg-theme-hint-color, #888); margin-top: 2px; }
 
   .qty-row {
     display: flex;
@@ -128,6 +128,27 @@
     margin-top: auto;
   }
 
+  /* ── Mix screen ── */
+  #mix-screen { padding: 16px; }
+  #mix-screen h2 { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  #mix-product-price { font-size: 18px; font-weight: 700; color: var(--tg-theme-button-color, #0088cc); margin-bottom: 12px; }
+  #mix-subtitle { font-size: 15px; margin-bottom: 16px; }
+  #mix-buttons { display: flex; flex-direction: column; gap: 10px; }
+  .mix-btn {
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--tg-theme-hint-color, #ccc);
+    background: var(--tg-theme-secondary-bg-color, #f5f5f5);
+    cursor: pointer;
+    text-align: left;
+    gap: 4px;
+  }
+  .mix-btn.selected { border-color: var(--tg-theme-button-color, #0088cc); }
+  .mix-btn-title { font-size: 15px; font-weight: 700; color: var(--tg-theme-text-color, #000); }
+  .mix-btn-flavors { font-size: 12px; color: var(--tg-theme-hint-color, #666); }
+
   /* ── Cart screen ── */
   #cart-screen { padding: 16px; }
   #cart-screen h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
@@ -156,10 +177,7 @@
     color: var(--tg-theme-text-color, #000);
     font-size: 15px;
   }
-  .toggle-row {
-    display: flex;
-    gap: 8px;
-  }
+  .toggle-row { display: flex; gap: 8px; }
   .toggle-btn {
     flex: 1;
     padding: 9px;
@@ -180,49 +198,57 @@
 </head>
 <body>
 
-<!-- ── Shop screen ── -->
+<!-- ── Boutique ── -->
 <div id="shop-screen" class="screen active">
   <header>
-    <h1 id="shop-title">Shop</h1>
+    <h1 id="shop-title">Boutique</h1>
     <div id="cart-badge">🛒 <span id="cart-count">0</span></div>
   </header>
   <div id="category-tabs"></div>
   <div id="product-grid"></div>
 </div>
 
-<!-- ── Cart screen ── -->
-<div id="cart-screen" class="screen">
-  <h2>Your Cart</h2>
-  <div id="cart-items"></div>
-  <div class="cart-total">Total: €<span id="cart-total">0.00</span></div>
+<!-- ── Sélection de saveur ── -->
+<div id="mix-screen" class="screen">
+  <h2 id="mix-product-name"></h2>
+  <div id="mix-product-price"></div>
+  <div id="mix-subtitle">🍬 Sélectionnez votre saveur :</div>
+  <div id="mix-buttons"></div>
 </div>
 
-<!-- ── Checkout screen ── -->
+<!-- ── Panier ── -->
+<div id="cart-screen" class="screen">
+  <h2>Votre panier</h2>
+  <div id="cart-items"></div>
+  <div class="cart-total">Total : €<span id="cart-total">0.00</span></div>
+</div>
+
+<!-- ── Commander ── -->
 <div id="checkout-screen" class="screen">
-  <h2>Checkout</h2>
+  <h2>Commander</h2>
   <div class="form-group">
-    <label>Full name</label>
-    <input type="text" id="input-name" placeholder="John Doe" />
+    <label>Nom complet</label>
+    <input type="text" id="input-name" placeholder="Jean Dupont" />
   </div>
   <div class="form-group">
-    <label>Phone number</label>
-    <input type="tel" id="input-phone" placeholder="+1 234 567 890" />
+    <label>Numéro de téléphone</label>
+    <input type="tel" id="input-phone" placeholder="+33 6 00 00 00 00" />
   </div>
   <div class="form-group">
-    <label>Delivery</label>
+    <label>Livraison</label>
     <div class="toggle-row">
-      <button class="toggle-btn active" id="btn-pickup" onclick="setDelivery('pickup')">🏪 Pickup</button>
-      <button class="toggle-btn" id="btn-delivery" onclick="setDelivery('delivery')">🚚 Delivery</button>
+      <button class="toggle-btn active" id="btn-pickup" onclick="setDelivery('pickup')">🏪 Retrait</button>
+      <button class="toggle-btn" id="btn-delivery" onclick="setDelivery('delivery')">🚚 Livraison</button>
     </div>
   </div>
   <div class="form-group" id="address-group">
-    <label>Address</label>
-    <input type="text" id="input-address" placeholder="123 Main St" />
+    <label>Adresse</label>
+    <input type="text" id="input-address" placeholder="123 rue de la Paix" />
   </div>
   <div class="form-group">
-    <label>Payment</label>
+    <label>Paiement</label>
     <div class="toggle-row">
-      <button class="toggle-btn active" id="btn-inperson" onclick="setPayment('inperson')">💵 Cash</button>
+      <button class="toggle-btn active" id="btn-inperson" onclick="setPayment('inperson')">💵 Espèces</button>
       <button class="toggle-btn" id="btn-paypal" onclick="setPayment('paypal')">💳 PayPal</button>
     </div>
   </div>
@@ -233,25 +259,23 @@ const tg = window.Telegram.WebApp;
 tg.expand();
 tg.enableClosingConfirmation();
 
-// ── State ──
+const NUM_EMOJI = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟","1️⃣1️⃣","1️⃣2️⃣"];
+
 let catalog = null;
-let cart = {};           // { productId: qty }
-let productMap = {};     // { productId: product }
+let cart = {};
+let productMap = {};
 let currentCatId = null;
-let currentScreen = "shop";
+let currentMixProductId = null;
 let deliveryType = "pickup";
 let paymentType = "inperson";
 
-// ── Load catalog ──
 async function loadCatalog() {
   try {
-    // Try to load from same directory (GitHub Pages)
     const res = await fetch("catalog.json");
     catalog = await res.json();
   } catch {
     catalog = { categories: [] };
   }
-  // Build productMap
   for (const cat of catalog.categories) {
     for (const p of cat.products) {
       productMap[p.id] = { ...p, categoryId: cat.id };
@@ -261,14 +285,12 @@ async function loadCatalog() {
   const firstCat = catalog.categories.find(c => c.products.some(p => p.available));
   if (firstCat) selectCategory(firstCat.id);
   document.getElementById("shop-title").textContent = tg.initDataUnsafe?.user?.first_name
-    ? `Hi ${tg.initDataUnsafe.user.first_name} 👋`
-    : "Shop";
+    ? `Bonjour ${tg.initDataUnsafe.user.first_name} 👋`
+    : "Boutique";
 }
 
-// ── Category tabs ──
 function renderTabs() {
-  const el = document.getElementById("category-tabs");
-  el.innerHTML = catalog.categories
+  document.getElementById("category-tabs").innerHTML = catalog.categories
     .map(c => `<button class="tab" data-id="${c.id}" onclick="selectCategory('${c.id}')">${c.name}</button>`)
     .join("");
 }
@@ -279,54 +301,104 @@ function selectCategory(id) {
   renderProducts();
 }
 
-// ── Product grid ──
 function renderProducts() {
   const cat = catalog.categories.find(c => c.id === currentCatId);
   const grid = document.getElementById("product-grid");
   if (!cat) { grid.innerHTML = ""; return; }
 
   grid.innerHTML = cat.products.map(p => {
-    const qty = cart[p.id] || 0;
-    const emoji = categoryEmoji(currentCatId);
+    const emoji = { devices:"⚡", disposables:"🔥", eliquids:"💧", accessories:"🔧" }[currentCatId] || "🛍";
     const imgHtml = p.image_url
       ? `<img class="product-img" src="${p.image_url}" alt="${p.name}" />`
       : `<div class="product-img">${emoji}</div>`;
 
     if (!p.available) {
-      return `<div class="product-card">
-        ${imgHtml}
+      return `<div class="product-card">${imgHtml}
         <div class="product-info">
           <div class="product-name">${p.name}</div>
-          <div class="product-unavailable">Out of stock</div>
-        </div>
-      </div>`;
+          <div class="product-unavailable">Rupture de stock</div>
+        </div></div>`;
     }
 
+    if (p.mixes && p.mixes.length > 0) {
+      const inCart = Object.keys(cart).filter(k => k.startsWith(p.id + "-mix-")).reduce((s,k) => s + cart[k], 0);
+      const badge = inCart > 0 ? `<div class="mix-badge">🛒 ${inCart} dans le panier</div>` : "";
+      return `<div class="product-card">${imgHtml}
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">€${p.price.toFixed(2)}</div>
+          ${badge}
+          <button class="add-btn" onclick="showMixScreen('${p.id}')">🍬 Choisir</button>
+        </div></div>`;
+    }
+
+    const qty = cart[p.id] || 0;
     const controls = qty === 0
-      ? `<button class="add-btn" onclick="addToCart('${p.id}')">ADD</button>`
+      ? `<button class="add-btn" onclick="addToCart('${p.id}')">AJOUTER</button>`
       : `<div class="qty-row">
            <button class="qty-btn" onclick="changeQty('${p.id}',-1)">−</button>
            <span class="qty-num">${qty}</span>
            <button class="qty-btn" onclick="changeQty('${p.id}',1)">+</button>
          </div>`;
-
-    return `<div class="product-card" id="card-${p.id}">
-      ${imgHtml}
+    return `<div class="product-card" id="card-${p.id}">${imgHtml}
       <div class="product-info">
         <div class="product-name">${p.name}</div>
         <div class="product-price">€${p.price.toFixed(2)}</div>
         ${controls}
-      </div>
-    </div>`;
+      </div></div>`;
   }).join("");
 }
 
-function categoryEmoji(id) {
-  const map = { devices: "⚡", disposables: "🔥", eliquids: "💧", accessories: "🔧" };
-  return map[id] || "🛍";
+function showMixScreen(productId) {
+  currentMixProductId = productId;
+  const p = productMap[productId];
+  document.getElementById("mix-product-name").textContent = p.name;
+  document.getElementById("mix-product-price").textContent = `€${p.price.toFixed(2)}`;
+
+  document.getElementById("mix-buttons").innerHTML = p.mixes.map((mix, i) => {
+    const itemId = productId + "-mix-" + mix.id;
+    const qty = cart[itemId] || 0;
+    const qtyBadge = qty > 0
+      ? ` <span style="float:right;background:var(--tg-theme-button-color,#0088cc);color:#fff;border-radius:12px;padding:1px 8px;font-size:12px">×${qty}</span>`
+      : "";
+    return `<button class="mix-btn${qty > 0 ? " selected" : ""}" onclick="selectMix('${productId}',${mix.id})">
+      <div class="mix-btn-title">${NUM_EMOJI[i] || (mix.id + ".")} Mix #${mix.id}${qtyBadge}</div>
+      <div class="mix-btn-flavors">${mix.flavors.join(" · ")}</div>
+    </button>`;
+  }).join("");
+
+  showScreen("mix");
+  tg.BackButton.show();
+  tg.BackButton.onClick(backFromMix);
+  updateMixMainButton();
 }
 
-// ── Cart logic ──
+function updateMixMainButton() {
+  const count = Object.values(cart).reduce((s, q) => s + q, 0);
+  tg.MainButton.offClick(goToCart);
+  if (count > 0) {
+    tg.MainButton.setText(`🛒 Voir le panier — €${cartTotal().toFixed(2)}`);
+    tg.MainButton.show();
+    tg.MainButton.onClick(goToCart);
+  } else {
+    tg.MainButton.hide();
+  }
+}
+
+function selectMix(productId, mixId) {
+  const itemId = productId + "-mix-" + mixId;
+  cart[itemId] = (cart[itemId] || 0) + 1;
+  showMixScreen(productId);
+}
+
+function backFromMix() {
+  tg.BackButton.offClick(backFromMix);
+  tg.BackButton.hide();
+  showScreen("shop");
+  renderProducts();
+  updateCart();
+}
+
 function addToCart(id) {
   cart[id] = 1;
   updateCart();
@@ -341,15 +413,12 @@ function changeQty(id, delta) {
 }
 
 function updateCart() {
-  const total = cartTotal();
   const count = Object.values(cart).reduce((s, q) => s + q, 0);
-  const badge = document.getElementById("cart-badge");
-  const countEl = document.getElementById("cart-count");
-  countEl.textContent = count;
-  badge.style.display = count > 0 ? "block" : "none";
-
+  document.getElementById("cart-count").textContent = count;
+  document.getElementById("cart-badge").style.display = count > 0 ? "block" : "none";
+  tg.MainButton.offClick(goToCart);
   if (count > 0) {
-    tg.MainButton.setText(`🛒 View Cart — €${total.toFixed(2)}`);
+    tg.MainButton.setText(`🛒 Voir le panier — €${cartTotal().toFixed(2)}`);
     tg.MainButton.show();
     tg.MainButton.onClick(goToCart);
   } else {
@@ -359,18 +428,18 @@ function updateCart() {
 
 function cartTotal() {
   return Object.entries(cart).reduce((sum, [id, qty]) => {
-    return sum + (productMap[id]?.price || 0) * qty;
+    const baseId = id.includes("-mix-") ? id.replace(/-mix-\d+$/, "") : id;
+    return sum + (productMap[baseId]?.price || 0) * qty;
   }, 0);
 }
 
-// ── Navigation ──
 function goToCart() {
   tg.MainButton.offClick(goToCart);
   showScreen("cart");
   renderCart();
   tg.BackButton.show();
   tg.BackButton.onClick(goToShop);
-  tg.MainButton.setText(`Checkout — €${cartTotal().toFixed(2)}`);
+  tg.MainButton.setText(`Commander — €${cartTotal().toFixed(2)}`);
   tg.MainButton.onClick(goToCheckout);
 }
 
@@ -386,41 +455,42 @@ function goToCheckout() {
   showScreen("checkout");
   tg.BackButton.offClick(goToShop);
   tg.BackButton.onClick(goToCart);
-  tg.MainButton.setText("Place Order");
+  tg.MainButton.setText("Passer la commande");
   tg.MainButton.onClick(placeOrder);
 }
 
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById(`${name}-screen`).classList.add("active");
-  currentScreen = name;
+  document.getElementById(name + "-screen").classList.add("active");
 }
 
-// ── Cart render ──
 function renderCart() {
-  const el = document.getElementById("cart-items");
-  el.innerHTML = Object.entries(cart).map(([id, qty]) => {
-    const p = productMap[id];
+  document.getElementById("cart-items").innerHTML = Object.entries(cart).map(([id, qty]) => {
+    const baseId = id.includes("-mix-") ? id.replace(/-mix-\d+$/, "") : id;
+    const p = productMap[baseId];
     if (!p) return "";
+    const label = id.includes("-mix-") ? `${p.name} — Mix #${id.split("-mix-")[1]}` : p.name;
     return `<div class="cart-item">
-      <div class="cart-item-name">${p.name}</div>
+      <div class="cart-item-name">${label}</div>
       <div class="qty-row" style="gap:8px">
-        <button class="qty-btn" onclick="changeQty('${id}',-1);renderCart();updateCartTotal()">−</button>
+        <button class="qty-btn" onclick="changeCartQty('${id}',-1)">−</button>
         <span class="qty-num">${qty}</span>
-        <button class="qty-btn" onclick="changeQty('${id}',1);renderCart();updateCartTotal()">+</button>
+        <button class="qty-btn" onclick="changeCartQty('${id}',1)">+</button>
       </div>
       <div class="cart-item-price">€${(p.price * qty).toFixed(2)}</div>
     </div>`;
   }).join("");
-  updateCartTotal();
-}
-
-function updateCartTotal() {
   document.getElementById("cart-total").textContent = cartTotal().toFixed(2);
-  if (Object.keys(cart).length === 0) goToShop();
 }
 
-// ── Delivery/Payment toggles ──
+function changeCartQty(id, delta) {
+  cart[id] = (cart[id] || 0) + delta;
+  if (cart[id] <= 0) delete cart[id];
+  if (Object.keys(cart).length === 0) { goToShop(); return; }
+  renderCart();
+  tg.MainButton.setText(`Commander — €${cartTotal().toFixed(2)}`);
+}
+
 function setDelivery(type) {
   deliveryType = type;
   document.getElementById("btn-pickup").classList.toggle("active", type === "pickup");
@@ -434,34 +504,26 @@ function setPayment(type) {
   document.getElementById("btn-paypal").classList.toggle("active", type === "paypal");
 }
 
-// ── Submit order ──
 function placeOrder() {
   const name = document.getElementById("input-name").value.trim();
   const phone = document.getElementById("input-phone").value.trim();
   const address = document.getElementById("input-address").value.trim();
+  if (!name) { tg.showAlert("Veuillez entrer votre nom."); return; }
+  if (!phone) { tg.showAlert("Veuillez entrer votre numéro de téléphone."); return; }
+  if (deliveryType === "delivery" && !address) { tg.showAlert("Veuillez entrer votre adresse de livraison."); return; }
 
-  if (!name) { tg.showAlert("Please enter your name."); return; }
-  if (!phone) { tg.showAlert("Please enter your phone number."); return; }
-  if (deliveryType === "delivery" && !address) { tg.showAlert("Please enter your delivery address."); return; }
-
-  const items = Object.entries(cart).map(([id, qty]) => ({
-    id,
-    category_id: productMap[id]?.categoryId || "",
-    name: productMap[id]?.name || id,
-    qty,
-    price: productMap[id]?.price || 0,
-  }));
-
-  const order = { name, phone, delivery_type: deliveryType, address, payment: paymentType, items };
+  const items = Object.entries(cart).map(([id, qty]) => {
+    const baseId = id.includes("-mix-") ? id.replace(/-mix-\d+$/, "") : id;
+    const p = productMap[baseId];
+    const label = id.includes("-mix-") ? `${p?.name} — Mix #${id.split("-mix-")[1]}` : (p?.name || id);
+    return { id, category_id: p?.categoryId || "", name: label, qty, price: p?.price || 0 };
+  });
 
   tg.MainButton.showProgress();
-  tg.sendData(JSON.stringify(order));
+  tg.sendData(JSON.stringify({ name, phone, delivery_type: deliveryType, address, payment: paymentType, items }));
 }
 
-// ── Cart badge tap ──
 document.getElementById("cart-badge").addEventListener("click", goToCart);
-
-// ── Init ──
 loadCatalog();
 </script>
 </body>
