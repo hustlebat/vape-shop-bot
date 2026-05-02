@@ -10,6 +10,7 @@ from telegram import (
     Update,
     WebAppInfo,
 )
+from telegram.error import BadRequest
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -103,12 +104,15 @@ def _shop_button_keyboard() -> ReplyKeyboardMarkup | None:
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     shop_kb = _shop_button_keyboard()
     if shop_kb and not context.user_data.get("shop_button_shown"):
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Appuyez sur le bouton ci-dessous pour ouvrir la boutique. 👇",
-            reply_markup=shop_kb,
-        )
-        context.user_data["shop_button_shown"] = True
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Appuyez sur le bouton ci-dessous pour ouvrir la boutique. 👇",
+                reply_markup=shop_kb,
+            )
+            context.user_data["shop_button_shown"] = True
+        except BadRequest as e:
+            logger.warning("Impossible d'afficher le bouton Mini App : %s", e)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=f"🏠 {config.SHOP_NAME} — Que souhaitez-vous faire ?",
