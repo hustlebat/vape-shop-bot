@@ -58,7 +58,9 @@ END = ConversationHandler.END
     ADMIN_EDIT_VALUE,
     ADMIN_REMOVE_SELECT,
     ADMIN_REMOVE_CONFIRM,
-) = range(21)
+    ADMIN_IMG_SELECT,
+    ADMIN_IMG_UPLOAD,
+) = range(23)
 
 
 # ── Shared helpers ─────────────────────────────────────────────────────────────
@@ -181,7 +183,13 @@ async def _render_products(update: Update, context: ContextTypes.DEFAULT_TYPE, c
         ]
         keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data="back_cat")])
         text = f"{cat['name']}"
-    await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    # If returning from a photo-based product detail, the current message is a photo.
+    # We must delete it and send a fresh text message instead of editing.
+    if context.user_data.pop("in_photo_detail", False):
+        await update.callback_query.message.delete()
+        await update.callback_query.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
     return BROWSE_PROD
 
 
@@ -212,11 +220,25 @@ async def _render_product_detail(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("🛒 Add to Cart", callback_data=f"addcart_{product_id}")],
         [InlineKeyboardButton("⬅️ Back", callback_data="back_prod")],
     ]
-    await update.callback_query.edit_message_text(
-        f"*{product['name']}*\n\n{product['description']}\n\n💶 €{product['price']:.2f}",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode="Markdown",
-    )
+    caption = f"*{product['name']}*\n\n{product['description']}\n\n💶 €{product['price']:.2f}"
+    image = product.get("image")
+    if image:
+        # Replace the current message with a photo+caption message.
+        await update.callback_query.message.delete()
+        await update.callback_query.message.reply_photo(
+            photo=image,
+            caption=caption,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown",
+        )
+        context.user_data["in_photo_detail"] = True
+    else:
+        await update.callback_query.edit_message_text(
+            caption,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode="Markdown",
+        )
+        context.user_data["in_photo_detail"] = False
     return PROD_DETAIL
 
 
@@ -663,6 +685,53 @@ async def admin_edit_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     return END
 
 
+# ── Admin: /setproductimage ───────────────────────────────────────────────────
+
+async def admin_img_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not is_admin(update):
+        return END
+    catalog = load_catalog(config.CATALOG_PATH)
+    products = _all_products(catalog)
+    if not products:
+        await update.message.reply_text("No products in catalog.")
+        return END
+    keyboard = [
+        [InlineKeyboardButton(p["name"], callback_data=f"img_{cat_id}__{p['id']}")]
+        for cat_id, p in products
+    ]
+    await update.message.reply_text("Which product to set image for?", reply_markup=InlineKeyboardMarkup(keyboard))
+    return ADMIN_IMG_SELECT
+
+
+async def admin_img_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    _, rest = query.data.split("img_", 1)
+    cat_id, product_id = rest.split("__", 1)
+    context.user_data["admin_img_cat"] = cat_id
+    context.user_data["admin_img_prod"] = product_id
+    await query.edit_message_text("Send me a photo to use for this product:")
+    return ADMIN_IMG_UPLOAD
+
+
+async def admin_img_upload(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    if not update.message.photo:
+        await update.message.reply_text("Please send a photo image.")
+        return ADMIN_IMG_UPLOAD
+    file_id = update.message.photo[-1].file_id
+    catalog = load_catalog(config.CATALOG_PATH)
+    catalog = edit_product(
+        catalog,
+        context.user_data["admin_img_cat"],
+        context.user_data["admin_img_prod"],
+        "image",
+        file_id,
+    )
+    save_catalog(catalog, config.CATALOG_PATH)
+    await update.message.reply_text("✅ Product image saved.")
+    return END
+
+
 # ── Application wiring ────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -739,10 +808,20 @@ def main() -> None:
         fallbacks=[],
     )
 
+    img_conv = ConversationHandler(
+        entry_points=[CommandHandler("setproductimage", admin_img_start)],
+        states={
+            ADMIN_IMG_SELECT: [CallbackQueryHandler(admin_img_select, pattern="^img_")],
+            ADMIN_IMG_UPLOAD: [MessageHandler(filters.PHOTO, admin_img_upload)],
+        },
+        fallbacks=[],
+    )
+
     app.add_handler(customer_conv)
     app.add_handler(add_conv)
     app.add_handler(remove_conv)
     app.add_handler(edit_conv)
+    app.add_handler(img_conv)
     app.add_handler(CommandHandler("listproducts", cmd_list_products))
     app.add_handler(CommandHandler("orders", cmd_orders))
     app.add_handler(CommandHandler("paid", cmd_paid))

@@ -9,7 +9,94 @@
           "name": "Vuse Alto",
           "description": "Compact pod device, 650mAh battery. Includes pod.",
           "price": 15.90,
-          "available": true
+          "available": true,
+          "image": null
+        }
+      ]
+    },
+    {
+      "id": "disposables",
+      "name": "🔥 Disposables",
+      "products": [
+        {
+          "id": "tastefog-hex-1",
+          "name": "Tastefog HEX 6IN1 — Mix 1",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Strawberry Banana\nB: Watermelon Ice\nC: Melon Pineapple Banana\nD: Strawberry Banana + Watermelon Ice\nE: Watermelon Ice + Melon Pineapple Banana\nF: Strawberry Banana + Melon Pineapple Banana",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-2",
+          "name": "Tastefog HEX 6IN1 — Mix 2",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Blueberry Cranberry Cherry\nB: Strawberry Mango\nC: Gummy Bear\nD: Blueberry Cranberry Cherry + Strawberry Mango\nE: Strawberry Mango + Gummy Bear\nF: Blueberry Cranberry Cherry + Gummy Bear",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-3",
+          "name": "Tastefog HEX 6IN1 — Mix 3",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Juicy Peach Ice\nB: Triple Melon\nC: Pink Lemonade\nD: Juicy Peach Ice + Triple Melon\nE: Triple Melon + Pink Lemonade\nF: Juicy Peach Ice + Pink Lemonade",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-4",
+          "name": "Tastefog HEX 6IN1 — Mix 4",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Watermelon Ice\nB: Mr Blue\nC: Triple Mango\nD: Watermelon Ice + Mr Blue\nE: Mr Blue + Triple Mango\nF: Watermelon Ice + Triple Mango",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-5",
+          "name": "Tastefog HEX 6IN1 — Mix 5",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Strawberry Watermelon\nB: Rainbow Candy\nC: Banana Ice\nD: Strawberry Watermelon + Rainbow Candy\nE: Rainbow Candy + Banana Ice\nF: Strawberry Watermelon + Banana Ice",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-6",
+          "name": "Tastefog HEX 6IN1 — Mix 6",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Vanilla Coke\nB: Lemon Lime\nC: Tropical Punch\nD: Vanilla Coke + Lemon Lime\nE: Lemon Lime + Tropical Punch\nF: Vanilla Coke + Tropical Punch",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-7",
+          "name": "Tastefog HEX 6IN1 — Mix 7",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Peach Mango Watermelon\nB: Monster\nC: Banana Ice\nD: Peach Mango Watermelon + Monster\nE: Monster + Banana Ice\nF: Peach Mango Watermelon + Banana Ice",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-8",
+          "name": "Tastefog HEX 6IN1 — Mix 8",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Strawberry Kiwi\nB: Blueberry Ice\nC: Peach Lemon\nD: Strawberry Kiwi + Blueberry Ice\nE: Blueberry Ice + Peach Lemon\nF: Strawberry Kiwi + Peach Lemon",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-9",
+          "name": "Tastefog HEX 6IN1 — Mix 9",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Coconut Melon\nB: Vanilla Coke\nC: Blueberry Sour Raspberry\nD: Coconut Melon + Vanilla Coke\nE: Vanilla Coke + Blueberry Sour Raspberry\nF: Coconut Melon + Blueberry Sour Raspberry",
+          "price": 0.00,
+          "available": false,
+          "image": null
+        },
+        {
+          "id": "tastefog-hex-10",
+          "name": "Tastefog HEX 6IN1 — Mix 10",
+          "description": "150,000 puffs • 20ml×3 • 1.0Ω Mesh Coil • Type C • LED Display\n\n6 flavors in 1 device:\nA: Peach Apple\nB: Blue Razz Candy\nC: Peach Pineapple Orange\nD: Peach Apple + Blue Razz Candy\nE: Blue Razz Candy + Peach Pineapple Orange\nF: Peach Apple + Peach Pineapple Orange",
+          "price": 0.00,
+          "available": false,
+          "image": null
         }
       ]
     },

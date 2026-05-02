@@ -81,6 +81,13 @@ def test_add_product(catalog):
     assert p["price"] == 9.50
     assert p["available"] is True
     assert p["id"] == "mango-ice"
+    assert p["image"] is None
+
+
+def test_add_product_with_image(catalog):
+    result = add_product(catalog, "eliquids", "Mango Ice", "Sweet mango flavour.", 9.50, image="AgACAgQAA")
+    p = get_category(result, "eliquids")["products"][0]
+    assert p["image"] == "AgACAgQAA"
 
 
 def test_add_product_invalid_category(catalog):
@@ -106,6 +113,13 @@ def test_edit_product_available(catalog):
     result = edit_product(catalog, "devices", "vuse-alto", "available", False)
     p = get_product(result, "devices", "vuse-alto")
     assert p["available"] is False
+
+
+def test_edit_product_image(catalog):
+    file_id = "AgACAgQAAsome_file_id"
+    result = edit_product(catalog, "devices", "vuse-alto", "image", file_id)
+    p = get_product(result, "devices", "vuse-alto")
+    assert p["image"] == file_id
 
 
 def test_edit_product_invalid_field(catalog):
