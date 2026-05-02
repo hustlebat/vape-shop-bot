@@ -143,7 +143,7 @@ def test_format_catalog_list(catalog):
     assert "Vuse Alto" in text
     assert "€15.90" in text
     assert "E-Liquids" in text
-    assert "(no products)" in text
+    assert "(aucun produit)" in text
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ def test_calculate_total():
 
 def test_format_order_notification_delivery(sample_order):
     text = format_order_notification(sample_order, "Test Shop")
-    assert "NEW ORDER #0001" in text
+    assert "NOUVELLE COMMANDE #0001" in text
     assert "Jane Doe" in text
     assert "+34600000000" in text
     assert "Calle Mayor 1" in text
@@ -228,5 +228,5 @@ def test_format_order_notification_pickup():
         "status": "pending",
     }
     text = format_order_notification(order, "Shop")
-    assert "Pickup in store" in text
-    assert "In-Person" in text
+    assert "Retrait en boutique" in text
+    assert "Espèces" in text

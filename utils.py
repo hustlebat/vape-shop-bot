@@ -33,8 +33,13 @@ def get_product(catalog: dict, category_id: str, product_id: str) -> Optional[di
 
 
 def add_product(
-    catalog: dict, category_id: str, name: str, description: str, price: float,
+    catalog: dict,
+    category_id: str,
+    name: str,
+    description: str,
+    price: float,
     image: Optional[str] = None,
+    mixes: Optional[list] = None,
 ) -> dict:
     cat = get_category(catalog, category_id)
     if cat is None:
@@ -54,15 +59,29 @@ def add_product(
             "price": price,
             "available": True,
             "image": image,
+            "mixes": mixes or [],
         }
     )
     return catalog
 
 
+def add_product_from_json(catalog: dict, category_id: str, data: dict) -> dict:
+    """Add a product from a raw dict (name, description, price, available, image, mixes)."""
+    return add_product(
+        catalog,
+        category_id,
+        name=data["name"],
+        description=data.get("description", ""),
+        price=float(data.get("price", 0)),
+        image=data.get("image"),
+        mixes=data.get("mixes"),
+    )
+
+
 def edit_product(
     catalog: dict, category_id: str, product_id: str, field: str, value
 ) -> dict:
-    allowed = ("name", "description", "price", "available", "image")
+    allowed = ("name", "description", "price", "available", "image", "mixes")
     if field not in allowed:
         raise ValueError(f"Invalid field {field!r}. Allowed: {allowed}")
     product = get_product(catalog, category_id, product_id)
@@ -87,11 +106,12 @@ def format_catalog_list(catalog: dict) -> str:
     for cat in catalog["categories"]:
         lines.append(cat['name'])
         if not cat["products"]:
-            lines.append("  (no products)")
+            lines.append("  (aucun produit)")
         else:
             for p in cat["products"]:
                 status = "✅" if p["available"] else "❌"
-                lines.append(f"  {status} {p['name']} — €{p['price']:.2f}")
+                mix_info = f" ({len(p['mixes'])} mix)" if p.get("mixes") else ""
+                lines.append(f"  {status} {p['name']} — €{p['price']:.2f}{mix_info}")
     return "\n".join(lines)
 
 
@@ -123,22 +143,22 @@ def calculate_total(items: list) -> float:
 def format_order_notification(order: dict, shop_name: str) -> str:
     delivery = order["delivery"]
     if delivery["type"] == "delivery":
-        location = f"📍 Delivery: {delivery['address']}"
+        location = f"📍 Livraison : {delivery['address']}"
     else:
-        location = "📍 Pickup in store"
+        location = "📍 Retrait en boutique"
 
     items_text = "\n".join(
         f"  • {item['name']} x{item['qty']} — €{item['price'] * item['qty']:.2f}"
         for item in order["items"]
     )
-    payment = "PayPal" if order["payment"] == "paypal" else "In-Person / Cash"
+    payment = "PayPal" if order["payment"] == "paypal" else "Espèces / Sur place"
 
     return (
-        f"🛒 NEW ORDER #{order['id']}\n\n"
+        f"🛒 NOUVELLE COMMANDE #{order['id']}\n\n"
         f"👤 {order['customer']['name']}\n"
         f"📞 {order['customer']['phone']}\n"
         f"{location}\n\n"
-        f"Items:\n{items_text}\n\n"
-        f"Total: €{order['total']:.2f}\n"
-        f"💳 Payment: {payment}"
+        f"Articles :\n{items_text}\n\n"
+        f"Total : €{order['total']:.2f}\n"
+        f"💳 Paiement : {payment}"
     )
