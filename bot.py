@@ -2,7 +2,15 @@ import json
 import logging
 from datetime import datetime
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    Update,
+    WebAppInfo,
+)
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -78,8 +86,26 @@ def _main_menu_keyboard() -> InlineKeyboardMarkup:
     ])
 
 
+def _shop_button_keyboard() -> ReplyKeyboardMarkup | None:
+    """Persistent reply keyboard with Mini App button. Returns None if WEBAPP_URL not set."""
+    if not config.WEBAPP_URL:
+        return None
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton("🛍 Open Shop", web_app=WebAppInfo(url=config.WEBAPP_URL))]],
+        resize_keyboard=True,
+    )
+
+
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Send a new main menu message. Used after /start and post-checkout."""
+    shop_kb = _shop_button_keyboard()
+    if shop_kb and not context.user_data.get("shop_button_shown"):
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Tap the button below anytime to open the shop. 👇",
+            reply_markup=shop_kb,
+        )
+        context.user_data["shop_button_shown"] = True
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=f"🏠 {config.SHOP_NAME} — What would you like to do?",
@@ -445,6 +471,56 @@ async def remind_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         "Please send a screenshot of your PayPal payment confirmation. 📸"
     )
     return AWAIT_SCREENSHOT
+
+
+# ── Mini App order handler ────────────────────────────────────────────────────
+
+async def handle_webapp_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Receives a completed order submitted from the Mini App via sendData()."""
+    raw = update.effective_message.web_app_data.data
+    try:
+        order_data = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        await update.message.reply_text("Sorry, something went wrong with your order. Please try again.")
+        return
+
+    order_id = generate_order_id(config.ORDERS_PATH)
+    order = {
+        "id": order_id,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "customer": {
+            "name": order_data.get("name", ""),
+            "phone": order_data.get("phone", ""),
+        },
+        "delivery": {
+            "type": order_data.get("delivery_type", "pickup"),
+            "address": order_data.get("address", ""),
+        },
+        "items": order_data.get("items", []),
+        "total": calculate_total(order_data.get("items", [])),
+        "payment": order_data.get("payment", "inperson"),
+        "status": "pending",
+    }
+    save_order(order, config.ORDERS_PATH)
+
+    await context.bot.send_message(
+        chat_id=config.ADMIN_CHAT_ID,
+        text=format_order_notification(order, config.SHOP_NAME),
+    )
+
+    payment = order["payment"]
+    if payment == "paypal":
+        await update.message.reply_text(
+            f"✅ Order #{order_id} received!\n\n"
+            f"💳 Please pay via PayPal:\n{config.PAYPAL_LINK}\n\n"
+            "Once paid, send a screenshot of your confirmation here."
+        )
+        context.user_data["current_order_id"] = order_id
+    else:
+        await update.message.reply_text(
+            f"✅ Order #{order_id} received!\n\n"
+            "We'll contact you shortly to arrange everything. 🙌"
+        )
 
 
 # ── Admin helpers ─────────────────────────────────────────────────────────────
@@ -817,6 +893,7 @@ def main() -> None:
         fallbacks=[],
     )
 
+    app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_order))
     app.add_handler(customer_conv)
     app.add_handler(add_conv)
     app.add_handler(remove_conv)
